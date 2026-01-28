@@ -37,7 +37,7 @@ print(f"Total Rows (full games): {bronze_df.count()}")
 
 # COMMAND ----------
 
-# bronz_df = spark.read.format("parquet").load(root_volume)
+bronz_df = spark.read.format("parquet").load(root_volume)
 
 # COMMAND ----------
 
@@ -49,4 +49,4 @@ bronze_df = bronze_df.withColumn("prcessed_timestamp", current_timestamp())
 
 # COMMAND ----------
 
-bronze_df.write.mode("overwrite").saveAsTable("mlb.01_bronze.statcast")
+# bronze_df.write.mode("overwrite").saveAsTable("mlb.01_bronze.statcast")
