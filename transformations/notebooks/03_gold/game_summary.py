@@ -13,7 +13,3 @@ game_context_df.printSchema()
 
 # MAGIC %md
 # MAGIC ### bunt
-
-# COMMAND ----------
-
-game_context_df = game_context_df.

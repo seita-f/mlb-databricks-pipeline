@@ -3,15 +3,11 @@ silver_base_df = spark.read.table("mlb.02_silver.statcast_base")
 
 # COMMAND ----------
 
-silver_base_df.display()
+# silver_base_df.display()
 
 # COMMAND ----------
 
 # silver_base_df.printSchema()
-
-# COMMAND ----------
-
-silver_base_df = silver_base_df.filter("game_type == 'R'")
 
 # COMMAND ----------
 
@@ -22,10 +18,13 @@ silver_game_context_df = silver_base_df.select(
     "game_type",
     "home_team", 
     "away_team",
-
-    # tracking
     "home_score", 
     "away_score",
+    "batting_team",
+    "fielding_team",
+    "idx_game_pitch",
+
+    # tracking
     "events",
     "description", 
     "description_details", 
@@ -37,6 +36,8 @@ silver_game_context_df = silver_base_df.select(
     "inning", 
     "inning_topbot",
     "outs_when_up", 
+    "intercept_ball_minus_batter_pos_x_inches",
+    "intercept_ball_minus_batter_pos_y_inches",
 
     # player
     "batter", 
@@ -55,9 +56,17 @@ silver_game_context_df = silver_base_df.select(
     "on_2b", 
     "on_3b",
 
+    # expectations
+    "delta_home_win_exp",
+    "delta_run_exp",
+
     "prcessed_timestamp",
 )
 
+
+# COMMAND ----------
+
+silver_game_context_df.display()
 
 # COMMAND ----------
 

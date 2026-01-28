@@ -12,6 +12,11 @@
 
 # COMMAND ----------
 
+from pyspark.sql import Window
+from pyspark.sql.functions import row_number, col, round, when
+
+# COMMAND ----------
+
 bronze_df = spark.read.table("mlb.01_bronze.statcast")
 
 # COMMAND ----------
@@ -30,11 +35,6 @@ bronze_df.display()
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col, round, when
-
-
-# COMMAND ----------
-
 MPH_TO_KMH = 1.60934
 FEET_TO_CM = 30.48
 FEET_TO_M = 0.3048
@@ -42,9 +42,15 @@ INCH_TO_CM = 2.54
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ### Preprocessing 
+
+# COMMAND ----------
+
 
 silver_base_df = bronze_df.select(
     # *[col(c) for c in base_cols],
+    "game_date",
     "game_pk",
     "pitch_type",
     "events",
@@ -54,21 +60,41 @@ silver_base_df = bronze_df.select(
     "away_team",
     "pitch_name",
     "at_bat_number",
-    "bat_score",
-    "fld_score",
+    "home_score",
+    "away_score",
     "delta_home_win_exp",
     "delta_run_exp",
     "if_fielding_alignment",
     "of_fielding_alignment",
     "intercept_ball_minus_batter_pos_x_inches",
-    "intercept_ball_minus_batter_pos_x_inches",
+    "intercept_ball_minus_batter_pos_y_inches",
     "inning_topbot",
+    "inning",
+    "pitch_number",
+    "balls",
+    "strikes",
+    "hit_location",
+    "outs_when_up",
     "prcessed_timestamp",
+    "on_1b", 
+    "on_2b", 
+    "on_3b",
+    "batter", 
+    "pitcher", 
+    "fielder_2",
+    "fielder_3",
+    "fielder_4",
+    "fielder_5",
+    "fielder_6",
+    "fielder_7",
+    "fielder_8",
+    "fielder_9",
+
 
     # Speeds: mph -> km/h
     round(col("release_speed").cast("double") * MPH_TO_KMH, 2).alias("pitcher_release_speed_kmh"),
-    round(col("launch_speed").cast("double") * MPH_TO_KMH, 2).alias("launch_speed_kmh"),
-    round(col("bat_speed").cast("double") * MPH_TO_KMH, 2).alias("bat_speed_kmh"),
+    round(col("launch_speed").cast("double") * MPH_TO_KMH, 2).alias("hit_launch_speed_kmh"),
+    round(col("bat_speed").cast("double") * MPH_TO_KMH, 2).alias("hit_bat_speed_kmh"),
     
     # Positions / movement: ft -> cm
     round(col("release_pos_x").cast("double") * FEET_TO_CM, 2).alias("pitch_release_pos_x_cm_catcher_view"),
@@ -106,7 +132,7 @@ silver_base_df = bronze_df.select(
       .when(col("launch_speed_angle") == 5, "Solid Contact")
       .when(col("launch_speed_angle") == 6, "Barrel")
       .otherwise(None)
-      .alias("launch_speed_angle"),
+      .alias("hit_launch_speed_angle"),
 
     # zone
     when(col("zone") == 1, "high-left")
@@ -123,10 +149,19 @@ silver_base_df = bronze_df.select(
       .when(col("zone") == 13, "waste-low-left")
       .when(col("zone") == 14, "waste-low-right")
       .otherwise(None)
-      .alias("zone_catcher_view"),
+      .alias("pitch_zone_catcher_view"),
+
+    # Team for hit and field
+    when(col("inning_topbot") == "Top", col("away_team"))
+      .when(col("inning_topbot") == "Bot", col("home_team"))
+      .alias("batting_team"),
+
+    when(col("inning_topbot") == "Top", col("home_team"))
+      .when(col("inning_topbot") == "Bot", col("away_team"))
+      .alias("fielding_team"),
 
     # Renames
-    col("p_throws").alias("pitcher_hand"),
+    col("p_throws").alias("pitch_hand"),
     col("stand").alias("batter_side"),
     col("des").alias("description_details"),
     col("type").alias("pitch_result"),
@@ -141,4 +176,27 @@ silver_base_df.display()
 
 # COMMAND ----------
 
-silver_base_df.write.mode("overwrite").saveAsTable("mlb.02_silver.statcast_base")
+# MAGIC %md
+# MAGIC ### Sort by game event
+
+# COMMAND ----------
+
+window_spec = Window.partitionBy("game_pk").orderBy("at_bat_number", "pitch_number")
+
+silver_indexed_base_df = silver_base_df.withColumn(
+    "idx_game_pitch", 
+    row_number().over(window_spec)
+)
+
+# COMMAND ----------
+
+# silver_indexed_base_df.display()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Save
+
+# COMMAND ----------
+
+silver_indexed_base_df.write.mode("overwrite").saveAsTable("mlb.02_silver.statcast_base")
