@@ -1,13 +1,29 @@
 # Databricks notebook source
 from pyspark.sql import functions as F
+from delta.tables import DeltaTable
+
+# COMMAND ----------
+
+gold_table_name = "mlb.03_gold.game_summary_stats"
+
+# COMMAND ----------
+
+task_name = ""
+start_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="start_date")
+end_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="end_date")
+continue_flag = dbutils.jobs.taskValues.get(taskKey=task_name, key="continue_downstream", default="no")
+
+if continue_flag == "no":
+    dbutils.notebook.exit("No new data to aggregate.")
+
+# COMMAND ----------
+
+df = (spark.read.table("mlb.02_silver.statcast_enrich")
+      .filter(F.col("date").between(start_dt, end_dt)))
 
 # COMMAND ----------
 
 df = spark.read.table("mlb.02_silver.statcast_enrich")
-
-# COMMAND ----------
-
-# df.display()
 
 # COMMAND ----------
 
@@ -122,4 +138,18 @@ df_final = df_merged.join(
 
 # COMMAND ----------
 
-df_final.display()
+if spark.catalog.tableExists(gold_table_name):
+    target_table = DeltaTable.forName(spark, gold_table_name)
+    (target_table.alias("t")
+     .merge(
+         df_final.alias("s"),
+         "t.game_pk = s.game_pk" 
+     )
+     .whenMatchedUpdateAll()
+     .whenNotMatchedInsertAll()
+     .execute())
+else:
+    (df_final.write
+     .format("delta")
+     .mode("overwrite")
+     .saveAsTable(gold_table_name))

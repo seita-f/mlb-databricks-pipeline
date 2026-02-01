@@ -13,20 +13,27 @@
 # COMMAND ----------
 
 from pyspark.sql import Window
-from pyspark.sql.functions import row_number, col, round, when, to_date
+from pyspark.sql import functions as F
+from delta.tables import DeltaTable
 
 # COMMAND ----------
 
-bronze_df = spark.read.table("mlb.01_bronze.statcast")
+silver_table_name = "mlb.02_silver.statcast_base"
+task_name = "01_Statcast_Raw"
 
 # COMMAND ----------
 
-bronze_df.display()
+start_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="start_date")
+end_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="end_date")
+continue_flag = dbutils.jobs.taskValues.get(taskKey=task_name, key="continue_downstream", default="no")
+
+if continue_flag == "no":
+    dbutils.notebook.exit("Skipping Silver layer: No new data.")
 
 # COMMAND ----------
 
-# bronze_df.printSchema()
-
+df_bronze = (spark.table("mlb.01_bronze.statcast")
+             .filter(F.col("game_date").between(start_dt, end_dt)))
 
 # COMMAND ----------
 
@@ -54,9 +61,8 @@ df = bronze_df.filter((col("game_type") != "S") & (col("game_type") != "E"))
 
 
 silver_base_df = df.select(
-    # *[col(c) for c in base_cols],
     "game_pk",
-    to_date(col("game_date")).alias("date"),
+    F.to_date(col("game_date")).alias("date"),
     "pitch_type",
     "events",
     "description",
@@ -95,81 +101,81 @@ silver_base_df = df.select(
     "fielder_9",
 
     # Speeds: mph -> km/h
-    round(col("release_speed").cast("double") * MPH_TO_KMH, 2).alias("pitcher_release_speed_kmh"),
-    round(col("launch_speed").cast("double") * MPH_TO_KMH, 2).alias("launch_speed_kmh"),
-    round(col("bat_speed").cast("double") * MPH_TO_KMH, 2).alias("bat_speed_kmh"),
+    F.round(col("release_speed").cast("double") * MPH_TO_KMH, 2).alias("pitcher_release_speed_kmh"),
+    F.round(col("launch_speed").cast("double") * MPH_TO_KMH, 2).alias("launch_speed_kmh"),
+    F.round(col("bat_speed").cast("double") * MPH_TO_KMH, 2).alias("bat_speed_kmh"),
     
     # Positions / movement: ft -> cm
-    round(col("release_pos_x").cast("double") * FEET_TO_CM, 2).alias("pitch_release_pos_x_cm_catcher_view"),
-    round(col("release_pos_y").cast("double") * FEET_TO_CM, 2).alias("pitch_release_pos_y_cm_catcher_view"),
-    round(col("release_pos_z").cast("double") * FEET_TO_CM, 2).alias("pitch_release_pos_z_cm_catcher_view"),
-    round(col("pfx_x").cast("double") * FEET_TO_CM, 2).alias("pitch_ball_move_x_cm_catcher_view"),
-    round(col("pfx_z").cast("double") * FEET_TO_CM, 2).alias("pitch_ball_move_z_cm_catcher_view"),
-    round(col("plate_x").cast("double") * FEET_TO_CM, 2).alias("pitch_ball_pos_x_cm_catcher_view"),
-    round(col("plate_z").cast("double") * FEET_TO_CM, 2).alias("pitch_ball_pos_z_cm_catcher_view"),
-    round(col("sz_top").cast("double") * FEET_TO_CM, 2).alias("strike_zone_top_cm"),
-    round(col("sz_bot").cast("double") * FEET_TO_CM, 2).alias("strike_zone_bot_cm"),
-    round(col("swing_length").cast("double") * FEET_TO_CM, 2).alias("swing_length_cm"),
+    F.round(col("release_pos_x").cast("double") * FEET_TO_CM, 2).alias("pitch_release_pos_x_cm_catcher_view"),
+    F.round(col("release_pos_y").cast("double") * FEET_TO_CM, 2).alias("pitch_release_pos_y_cm_catcher_view"),
+    F.round(col("release_pos_z").cast("double") * FEET_TO_CM, 2).alias("pitch_release_pos_z_cm_catcher_view"),
+    F.round(col("pfx_x").cast("double") * FEET_TO_CM, 2).alias("pitch_ball_move_x_cm_catcher_view"),
+    F.round(col("pfx_z").cast("double") * FEET_TO_CM, 2).alias("pitch_ball_move_z_cm_catcher_view"),
+    F.round(col("plate_x").cast("double") * FEET_TO_CM, 2).alias("pitch_ball_pos_x_cm_catcher_view"),
+    F.round(col("plate_z").cast("double") * FEET_TO_CM, 2).alias("pitch_ball_pos_z_cm_catcher_view"),
+    F.round(col("sz_top").cast("double") * FEET_TO_CM, 2).alias("strike_zone_top_cm"),
+    F.round(col("sz_bot").cast("double") * FEET_TO_CM, 2).alias("strike_zone_bot_cm"),
+    F.round(col("swing_length").cast("double") * FEET_TO_CM, 2).alias("swing_length_cm"),
 
-    round(col("hc_x").cast("double") * FEET_TO_M, 2).alias("hit_field_coord_x_m"),
-    round(col("hc_y").cast("double") * FEET_TO_M, 2).alias("hit_field_coord_y_m"),
+    F.round(col("hc_x").cast("double") * FEET_TO_M, 2).alias("hit_field_coord_x_m"),
+    F.round(col("hc_y").cast("double") * FEET_TO_M, 2).alias("hit_field_coord_y_m"),
 
     # Velocities: ft/s -> m/s
-    round(col("vx0").cast("double") * FEET_TO_M, 2).alias("pitch_ball_vx_ms"),
-    round(col("vy0").cast("double") * FEET_TO_M, 2).alias("pitch_ball_vy_ms"),
-    round(col("vz0").cast("double") * FEET_TO_M, 2).alias("pitch_ball_vz_ms"),
+    F.round(col("vx0").cast("double") * FEET_TO_M, 2).alias("pitch_ball_vx_ms"),
+    F.round(col("vy0").cast("double") * FEET_TO_M, 2).alias("pitch_ball_vy_ms"),
+    F.round(col("vz0").cast("double") * FEET_TO_M, 2).alias("pitch_ball_vz_ms"),
 
     # Accelerations: ft/s^2 -> m/s^2
-    round(col("ax").cast("double") * FEET_TO_M, 2).alias("pitch_ball_ax_ms2"),
-    round(col("ay").cast("double") * FEET_TO_M, 2).alias("pitch_ball_ay_ms2"),
-    round(col("az").cast("double") * FEET_TO_M, 2).alias("pitch_ball_az_ms2"),
+    F.round(col("ax").cast("double") * FEET_TO_M, 2).alias("pitch_ball_ax_ms2"),
+    F.round(col("ay").cast("double") * FEET_TO_M, 2).alias("pitch_ball_ay_ms2"),
+    F.round(col("az").cast("double") * FEET_TO_M, 2).alias("pitch_ball_az_ms2"),
 
     # Hit distance: ft -> m
-    round(col("hit_distance_sc").cast("double") * FEET_TO_M, 2).alias("hit_dist_m"),
+    F.round(col("hit_distance_sc").cast("double") * FEET_TO_M, 2).alias("hit_dist_m"),
 
     # game type
-    when(col("game_type") == "R", "Regular Season")
-      .when(col("game_type") == "W", "Wild Card")
-      .when(col("game_type") == "D", "Divisional Series")
-      .when(col("game_type") == "L", "League Championship Series")
-      .when(col("game_type") == "W", "World Series")
+    F.when(col("game_type") == "R", "Regular Season")
+      F.when(col("game_type") == "W", "Wild Card")
+      F.when(col("game_type") == "D", "Divisional Series")
+      F.when(col("game_type") == "L", "League Championship Series")
+      F.when(col("game_type") == "W", "World Series")
       .otherwise(None)
       .alias("game_type"),
 
     # launch_speed_angle label
-    when(col("launch_speed_angle") == 1, "Weak")
-      .when(col("launch_speed_angle") == 2, "Topped")
-      .when(col("launch_speed_angle") == 3, "Under")
-      .when(col("launch_speed_angle") == 4, "Flare/Burner")
-      .when(col("launch_speed_angle") == 5, "Solid Contact")
-      .when(col("launch_speed_angle") == 6, "Barrel")
+    Fwhen(col("launch_speed_angle") == 1, "Weak")
+      F.when(col("launch_speed_angle") == 2, "Topped")
+      F.when(col("launch_speed_angle") == 3, "Under")
+      F.when(col("launch_speed_angle") == 4, "Flare/Burner")
+      F.when(col("launch_speed_angle") == 5, "Solid Contact")
+      F.when(col("launch_speed_angle") == 6, "Barrel")
       .otherwise(None)
       .alias("launch_speed_angle"),
 
     # zone
-    when(col("zone") == 1, "high-left")
-      .when(col("zone") == 2, "high-center")
-      .when(col("zone") == 3, "high-right")
-      .when(col("zone") == 4, "middle-left")
-      .when(col("zone") == 5, "middle-center")
-      .when(col("zone") == 6, "middle-right")
-      .when(col("zone") == 7, "low-left")
-      .when(col("zone") == 8, "low-center")
-      .when(col("zone") == 9, "low-right")
-      .when(col("zone") == 11, "waste-high-left")  # 10 is abandoned
-      .when(col("zone") == 12, "waste-high-right")
-      .when(col("zone") == 13, "waste-low-left")
-      .when(col("zone") == 14, "waste-low-right")
+    Fwhen(col("zone") == 1, "high-left")
+      F.when(col("zone") == 2, "high-center")
+      F.when(col("zone") == 3, "high-right")
+      F.when(col("zone") == 4, "middle-left")
+      F.when(col("zone") == 5, "middle-center")
+      F.when(col("zone") == 6, "middle-right")
+      F.when(col("zone") == 7, "low-left")
+      F.when(col("zone") == 8, "low-center")
+      F.when(col("zone") == 9, "low-right")
+      F.when(col("zone") == 11, "waste-high-left")  # 10 is abandoned
+      F.when(col("zone") == 12, "waste-high-right")
+      F.when(col("zone") == 13, "waste-low-left")
+      F.when(col("zone") == 14, "waste-low-right")
       .otherwise(None)
       .alias("pitch_zone_catcher_view"),
 
     # Team for hit and field
-    when(col("inning_topbot") == "Top", col("away_team"))
-      .when(col("inning_topbot") == "Bot", col("home_team"))
+    Fwhen(col("inning_topbot") == "Top", col("away_team"))
+      F.when(col("inning_topbot") == "Bot", col("home_team"))
       .alias("batting_team"),
 
-    when(col("inning_topbot") == "Top", col("home_team"))
-      .when(col("inning_topbot") == "Bot", col("away_team"))
+    Fwhen(col("inning_topbot") == "Top", col("home_team"))
+      F.when(col("inning_topbot") == "Bot", col("away_team"))
       .alias("fielding_team"),
 
     # Renames
@@ -184,7 +190,7 @@ silver_base_df = df.select(
 
 # COMMAND ----------
 
-silver_base_df.display()
+# silver_base_df.display()
 
 # COMMAND ----------
 
@@ -197,7 +203,7 @@ window_spec = Window.partitionBy("game_pk").orderBy("at_bat_number", "pitch_numb
 
 silver_indexed_base_df = silver_base_df.withColumn(
     "idx_game_pitch", 
-    row_number().over(window_spec)
+    F.row_number().over(window_spec)
 )
 
 # COMMAND ----------
@@ -211,4 +217,26 @@ silver_indexed_base_df = silver_base_df.withColumn(
 
 # COMMAND ----------
 
-silver_indexed_base_df.write.mode("overwrite").saveAsTable("mlb.02_silver.statcast_base")
+if spark.catalog.tableExists(silver_table_name):
+    target_table = DeltaTable.forName(spark, silver_table_name)
+    
+    # Merge
+    (target_table.alias("t")
+     .merge(
+         silver_indexed_base_df.alias("s"),
+         "t.game_pk = s.game_pk AND t.at_bat_number = s.at_bat_number AND t.pitch_number = s.pitch_number"
+     )
+     .whenMatchedUpdateAll()
+     .whenNotMatchedInsertAll() 
+     .execute())
+    
+    print(f"Merged updates into {silver_table_name}")
+
+else:
+    (silver_indexed_base_df.write
+     .format("delta")
+     .mode("overwrite")
+     .partitionBy("date")
+     .saveAsTable(silver_table_name))
+    
+    print(f"Created new table {silver_table_name}")

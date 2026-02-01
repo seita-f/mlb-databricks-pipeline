@@ -1,34 +1,21 @@
 # Databricks notebook source
-from pyspark.sql.functions import current_timestamp
+from pyspark.sql import functions as F
+from delta.tables import DeltaTable
 
 # COMMAND ----------
 
-root_volume = "/Volumes/mlb/00_landing/data_sources/statcast/*"
+root_volume = "/Volumes/mlb/00_landing/data_sources/statcast/"
+table_name = "mlb.01_bronze.statcast"
+task_name = "00_Ingest_Statcast"
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## DEV
+start_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="start_date")
+end_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="end_date")
+continue_flag = dbutils.jobs.taskValues.get(taskKey=task_name, key="continue_downstream", default="no")
 
-# COMMAND ----------
-
-# DEV
-# all_games = (spark.read.format("parquet")
-#              .load(root_volume)
-#              .select("game_pk")
-#              .distinct())
-
-# sample_game_pks = all_games.sample(withReplacement=False, fraction=0.01, seed=42)
-
-# COMMAND ----------
-
-# bronze_df = (spark.read.format("parquet")
-#              .load(root_volume)
-#              .join(sample_game_pks, on="game_pk", how="inner")
-#              )
-
-# print(f"Sampled Games: {sample_game_pks.count()}")
-# print(f"Total Rows (full games): {bronze_df.count()}")
+if continue_flag == "no":
+    dbutils.notebook.exit("No new data to process.")
 
 # COMMAND ----------
 
@@ -37,16 +24,22 @@ root_volume = "/Volumes/mlb/00_landing/data_sources/statcast/*"
 
 # COMMAND ----------
 
-bronze_df = spark.read.format("parquet").load(root_volume)
+new_bronze_df = (spark.read.format("parquet").load(root_volume)
+                 .filter(F.col("game_date").between(start_dt, end_dt)))
 
 # COMMAND ----------
 
-bronze_df.display()
+new_bronze_df = new_bronze_df.withColumn("processed_timestamp", F.current_timestamp())
 
 # COMMAND ----------
 
-bronze_df = bronze_df.withColumn("prcessed_timestamp", current_timestamp())
-
-# COMMAND ----------
-
-bronze_df.write.mode("overwrite").saveAsTable("mlb.01_bronze.statcast")
+if spark.catalog.tableExists(table_name):
+    target_table = DeltaTable.forName(spark, table_name)
+    
+    target_table.alias("t").merge(
+        new_bronze_df.alias("s"),
+        "t.game_pk = s.game_pk AND t.at_bat_number = s.at_bat_number AND t.pitch_number = s.pitch_number"
+    ).whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()
+else:
+    # initialize table
+    new_bronze_df.write.format("delta").mode("overwrite").saveAsTable(table_name)
