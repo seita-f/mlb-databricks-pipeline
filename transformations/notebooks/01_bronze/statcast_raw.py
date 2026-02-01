@@ -13,22 +13,22 @@ root_volume = "/Volumes/mlb/00_landing/data_sources/statcast/*"
 # COMMAND ----------
 
 # DEV
-all_games = (spark.read.format("parquet")
-             .load(root_volume)
-             .select("game_pk")
-             .distinct())
+# all_games = (spark.read.format("parquet")
+#              .load(root_volume)
+#              .select("game_pk")
+#              .distinct())
 
-sample_game_pks = all_games.sample(withReplacement=False, fraction=0.01, seed=42)
+# sample_game_pks = all_games.sample(withReplacement=False, fraction=0.01, seed=42)
 
 # COMMAND ----------
 
-bronze_df = (spark.read.format("parquet")
-             .load(root_volume)
-             .join(sample_game_pks, on="game_pk", how="inner")
-             )
+# bronze_df = (spark.read.format("parquet")
+#              .load(root_volume)
+#              .join(sample_game_pks, on="game_pk", how="inner")
+#              )
 
-print(f"Sampled Games: {sample_game_pks.count()}")
-print(f"Total Rows (full games): {bronze_df.count()}")
+# print(f"Sampled Games: {sample_game_pks.count()}")
+# print(f"Total Rows (full games): {bronze_df.count()}")
 
 # COMMAND ----------
 
@@ -37,7 +37,7 @@ print(f"Total Rows (full games): {bronze_df.count()}")
 
 # COMMAND ----------
 
-bronz_df = spark.read.format("parquet").load(root_volume)
+bronze_df = spark.read.format("parquet").load(root_volume)
 
 # COMMAND ----------
 
@@ -49,4 +49,4 @@ bronze_df = bronze_df.withColumn("prcessed_timestamp", current_timestamp())
 
 # COMMAND ----------
 
-# bronze_df.write.mode("overwrite").saveAsTable("mlb.01_bronze.statcast")
+bronze_df.write.mode("overwrite").saveAsTable("mlb.01_bronze.statcast")
