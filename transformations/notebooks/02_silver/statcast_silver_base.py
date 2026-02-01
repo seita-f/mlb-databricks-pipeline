@@ -13,7 +13,7 @@
 # COMMAND ----------
 
 from pyspark.sql import Window
-from pyspark.sql.functions import row_number, col, round, when
+from pyspark.sql.functions import row_number, col, round, when, to_date
 
 # COMMAND ----------
 
@@ -47,15 +47,19 @@ INCH_TO_CM = 2.54
 
 # COMMAND ----------
 
+# Eliminate spring trainig and exhibiton game 
+df = bronze_df.filter((col("game_type") != "S") & (col("game_type") != "E"))
 
-silver_base_df = bronze_df.select(
+# COMMAND ----------
+
+
+silver_base_df = df.select(
     # *[col(c) for c in base_cols],
-    "game_date",
     "game_pk",
+    to_date(col("game_date")).alias("date"),
     "pitch_type",
     "events",
     "description",
-    "game_type",
     "home_team",
     "away_team",
     "pitch_name",
@@ -90,11 +94,10 @@ silver_base_df = bronze_df.select(
     "fielder_8",
     "fielder_9",
 
-
     # Speeds: mph -> km/h
     round(col("release_speed").cast("double") * MPH_TO_KMH, 2).alias("pitcher_release_speed_kmh"),
-    round(col("launch_speed").cast("double") * MPH_TO_KMH, 2).alias("hit_launch_speed_kmh"),
-    round(col("bat_speed").cast("double") * MPH_TO_KMH, 2).alias("hit_bat_speed_kmh"),
+    round(col("launch_speed").cast("double") * MPH_TO_KMH, 2).alias("launch_speed_kmh"),
+    round(col("bat_speed").cast("double") * MPH_TO_KMH, 2).alias("bat_speed_kmh"),
     
     # Positions / movement: ft -> cm
     round(col("release_pos_x").cast("double") * FEET_TO_CM, 2).alias("pitch_release_pos_x_cm_catcher_view"),
@@ -124,6 +127,15 @@ silver_base_df = bronze_df.select(
     # Hit distance: ft -> m
     round(col("hit_distance_sc").cast("double") * FEET_TO_M, 2).alias("hit_dist_m"),
 
+    # game type
+    when(col("game_type") == "R", "Regular Season")
+      .when(col("game_type") == "W", "Wild Card")
+      .when(col("game_type") == "D", "Divisional Series")
+      .when(col("game_type") == "L", "League Championship Series")
+      .when(col("game_type") == "W", "World Series")
+      .otherwise(None)
+      .alias("game_type"),
+
     # launch_speed_angle label
     when(col("launch_speed_angle") == 1, "Weak")
       .when(col("launch_speed_angle") == 2, "Topped")
@@ -132,7 +144,7 @@ silver_base_df = bronze_df.select(
       .when(col("launch_speed_angle") == 5, "Solid Contact")
       .when(col("launch_speed_angle") == 6, "Barrel")
       .otherwise(None)
-      .alias("hit_launch_speed_angle"),
+      .alias("launch_speed_angle"),
 
     # zone
     when(col("zone") == 1, "high-left")
