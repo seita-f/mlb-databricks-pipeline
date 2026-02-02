@@ -52,7 +52,7 @@ df_join_batter = statcast_df.join(
         statcast_df.strikes,
         statcast_df.hit_location,
         statcast_df.outs_when_up,
-        statcast_df.prcessed_timestamp,
+        statcast_df.processed_timestamp,
         statcast_df.on_1b,
         statcast_df.on_2b,
         statcast_df.on_3b,
@@ -135,7 +135,7 @@ df_join_final = df_join_batter.join(
     df_join_batter.strikes,
     df_join_batter.hit_location,
     df_join_batter.outs_when_up,
-    df_join_batter.prcessed_timestamp,
+    df_join_batter.processed_timestamp,
     df_join_batter.on_1b,
     df_join_batter.on_2b,
     df_join_batter.on_3b,
@@ -200,6 +200,6 @@ if spark.catalog.tableExists(enrich_table_name):
 else:
     (df_join_final.write
      .format("delta")
-     .mode("appened")
+     .mode("append")
      .partitionBy("date")
      .saveAsTable(enrich_table_name))

@@ -151,5 +151,5 @@ if spark.catalog.tableExists(gold_table_name):
 else:
     (df_final.write
      .format("delta")
-     .mode("overwrite")
+     .mode("append")
      .saveAsTable(gold_table_name))
