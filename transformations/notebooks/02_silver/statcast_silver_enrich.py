@@ -5,10 +5,10 @@ from pyspark.sql import functions as F
 # COMMAND ----------
 
 enrich_table_name = "mlb.02_silver.statcast_enrich"
+task_name = "00_Ingest_Statcast"
 
 # COMMAND ----------
 
-task_name = "ingest_statcast" 
 start_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="start_date")
 end_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="end_date")
 continue_flag = dbutils.jobs.taskValues.get(taskKey=task_name, key="continue_downstream", default="no")
@@ -200,6 +200,6 @@ if spark.catalog.tableExists(enrich_table_name):
 else:
     (df_join_final.write
      .format("delta")
-     .mode("overwrite")
+     .mode("appened")
      .partitionBy("date")
      .saveAsTable(enrich_table_name))
