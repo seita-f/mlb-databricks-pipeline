@@ -58,8 +58,8 @@ silver_base_df = df.select(
     "game_pk",
     to_date(col("game_date")).alias("date"),
     "pitch_type",
-    "events",
-    "description",
+    # "events",
+    # "description",
     "home_team",
     "away_team",
     "pitch_name",
@@ -184,7 +184,14 @@ silver_base_df = df.select(
 
 # COMMAND ----------
 
-# silver_base_df.display()
+F.col("events").isin("strikeout", "strikeout_double_play").alias("is_k"),
+    F.col("events").isin("walk", "intent_walk").alias("is_bb"),
+    (F.col("events") == "hit_by_pitch").alias("is_hbp"),
+    (F.col("events") == "single").alias("is_single"),
+    (F.col("events") == "double").alias("is_double"),
+    (F.col("events") == "triple").alias("is_triple"),
+    (F.col("events") == "home_run").alias("is_hr"),
+    F.col("description").contains("swinging").alias("is_whiff")# silver_base_df.display()
 
 # COMMAND ----------
 

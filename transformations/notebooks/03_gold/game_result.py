@@ -5,10 +5,10 @@ from delta.tables import DeltaTable
 # COMMAND ----------
 
 gold_table_name = "mlb.03_gold.game_summary_stats"
-task_name = "00_Ingest_Statcast"
 
 # COMMAND ----------
 
+task_name = ""
 start_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="start_date")
 end_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="end_date")
 continue_flag = dbutils.jobs.taskValues.get(taskKey=task_name, key="continue_downstream", default="no")
@@ -151,5 +151,5 @@ if spark.catalog.tableExists(gold_table_name):
 else:
     (df_final.write
      .format("delta")
-     .mode("append")
+     .mode("overwrite")
      .saveAsTable(gold_table_name))
