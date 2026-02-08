@@ -79,7 +79,7 @@ silver_base_df = df.select(
     "strikes",
     "hit_location",
     "outs_when_up",
-    "prcessed_timestamp",
+    "processed_timestamp",
     "on_1b", 
     "on_2b", 
     "on_3b",
@@ -184,7 +184,7 @@ silver_base_df = df.select(
 
 # COMMAND ----------
 
-silver_base_df.display()
+# silver_base_df.display()
 
 # COMMAND ----------
 

@@ -45,7 +45,7 @@ bronze_df.display()
 
 # COMMAND ----------
 
-bronze_df = bronze_df.withColumn("prcessed_timestamp", current_timestamp())
+bronze_df = bronze_df.withColumn("processed_timestamp", current_timestamp())
 
 # COMMAND ----------
 
