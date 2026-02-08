@@ -5,10 +5,10 @@ from pyspark.sql import functions as F
 # COMMAND ----------
 
 enrich_table_name = "mlb.02_silver.statcast_enrich"
-task_name = "00_Ingest_Statcast"
 
 # COMMAND ----------
 
+task_name = "ingest_statcast" 
 start_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="start_date")
 end_dt = dbutils.jobs.taskValues.get(taskKey=task_name, key="end_date")
 continue_flag = dbutils.jobs.taskValues.get(taskKey=task_name, key="continue_downstream", default="no")
@@ -52,7 +52,7 @@ df_join_batter = statcast_df.join(
         statcast_df.strikes,
         statcast_df.hit_location,
         statcast_df.outs_when_up,
-        statcast_df.processed_timestamp,
+        statcast_df.prcessed_timestamp,
         statcast_df.on_1b,
         statcast_df.on_2b,
         statcast_df.on_3b,
@@ -135,7 +135,7 @@ df_join_final = df_join_batter.join(
     df_join_batter.strikes,
     df_join_batter.hit_location,
     df_join_batter.outs_when_up,
-    df_join_batter.processed_timestamp,
+    df_join_batter.prcessed_timestamp,
     df_join_batter.on_1b,
     df_join_batter.on_2b,
     df_join_batter.on_3b,
@@ -200,6 +200,6 @@ if spark.catalog.tableExists(enrich_table_name):
 else:
     (df_join_final.write
      .format("delta")
-     .mode("append")
+     .mode("overwrite")
      .partitionBy("date")
      .saveAsTable(enrich_table_name))

@@ -17,10 +17,6 @@ target_end_date_str = dbutils.widgets.get("target_end_date")
 
 # COMMAND ----------
 
-df.display()
-
-# COMMAND ----------
-
 stat_df = statcast(start_dt=target_start_date_str, end_dt=target_end_date_str)
 df = spark.createDataFrame(stat_df)
 

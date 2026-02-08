@@ -56,7 +56,7 @@ team_game_stats = df.filter(F.col("pitcher_release_speed_kmh").isNotNull()). \
     agg(
         # Fielding stats
         F.count("pitch_number").alias("pitch_count"),
-        F.round(F.avg(F.col("pitcher_release_speed_kmh")), 2).alias("pitching_avg_speed_kmh"),
+        F.round(F.avg(F.col("pitcher_release_speed_kmh")), 2).alias("pitch_avg_speed_kmh"),
         F.count(F.when(F.col("events") == "strikeout", 1)).alias("field_strikeout_count"),
         F.count(F.when(F.col("events") == "walk", 1)).alias("walk_allowed_count"),
         F.count(F.when(F.col("events") == "hit_by_pitch", 1)).alias("field_hit_by_pitch_count"),
@@ -64,12 +64,12 @@ team_game_stats = df.filter(F.col("pitcher_release_speed_kmh").isNotNull()). \
         F.count(F.when(F.col("events").contains("fielders_choice"), 1)).alias("fielders_choice_count"),
 
         # Batting stats (opponent team)
-        F.count(F.when(F.col("events") == "single", 1)).alias("batting_single"),
-        F.count(F.when(F.col("events") == "double", 1)).alias("batting_double"),
-        F.count(F.when(F.col("events") == "double", 1)).alias("batting_triple"),
-        F.count(F.when(F.col("events") == "home_run", 1)).alias("batting_homerun"),
-        F.round(F.avg("launch_speed_kmh"), 2).alias("batting_avg_launch_speed"),
-        F.round(F.avg("bat_speed_kmh"), 2).alias("batting_avg_bat_speed"),
+        F.count(F.when(F.col("events") == "single", 1)).alias("hit_single"),
+        F.count(F.when(F.col("events") == "double", 1)).alias("hit_double"),
+        F.count(F.when(F.col("events") == "double", 1)).alias("hit_triple"),
+        F.count(F.when(F.col("events") == "home_run", 1)).alias("hit_homerun"),
+        F.round(F.avg("launch_speed_kmh"), 2).alias("hit_avg_launch_speed"),
+        F.round(F.avg("bat_speed_kmh"), 2).alias("hit_avg_bat_speed"),
 )
 
 # COMMAND ----------
@@ -83,17 +83,17 @@ df_merged = game_base.join(
     game_base["*"],
 
     # home fields stats
-    F.col("h_stats.pitching_avg_speed_kmh").alias("home_pitching_avg_speed"),
-    F.col("h_stats.field_strikeout_count").alias("home_pitching_k"),
+    F.col("h_stats.pitch_avg_speed_kmh").alias("home_pitch_avg_speed"),
+    F.col("h_stats.field_strikeout_count").alias("home_pitch_k"),
     F.col("h_stats.pitch_count").alias("home_pitch_count"),
     F.col("h_stats.n_fastball").alias("home_pitch_fastball"),
     F.col("h_stats.n_breaking").alias("home_pitch_breaking"),
     F.col("h_stats.n_offspeed").alias("home_pitch_offspeed"),
     
     # away batting stats (occurs when home team fields)
-    F.col("h_stats.batting_homerun").alias("away_batting_homerun"),
-    F.col("h_stats.batting_avg_launch_speed").alias("away_batting_avg_launch_speed"),
-    F.col("h_stats.batting_avg_bat_speed").alias("away_batting_avg_bat_speed")
+    F.col("h_stats.hit_homerun").alias("away_hit_homerun"),
+    F.col("h_stats.hit_avg_launch_speed").alias("away_hit_avg_launch_speed"),
+    F.col("h_stats.hit_avg_bat_speed").alias("away_hit_avg_bat_speed")
 )
 
 # COMMAND ----------
@@ -107,7 +107,7 @@ df_final = df_merged.join(
     df_merged["*"],
 
     # away fileds stats
-    F.col("a_stats.pitching_avg_speed_kmh").alias("away_pitch_avg_speed"),
+    F.col("a_stats.pitch_avg_speed_kmh").alias("away_pitch_avg_speed"),
     F.col("a_stats.field_strikeout_count").alias("away_pitch_k"),
     F.col("a_stats.pitch_count").alias("away_pitch_count"),
     F.col("a_stats.n_fastball").alias("away_pitch_fastball"),
@@ -115,11 +115,15 @@ df_final = df_merged.join(
     F.col("a_stats.n_offspeed").alias("away_pitch_offspeed"),
 
     # home hitting stats（occurs when away team fileds）
-    F.col("a_stats.batting_homerun").alias("home_batting_homerun"),
-    F.col("a_stats.batting_avg_launch_speed").alias("home_batting_avg_launch_speed"),
-    F.col("a_stats.batting_avg_bat_speed").alias("home_batting_avg_bat_speed")
+    F.col("a_stats.hit_homerun").alias("home_hit_homerun"),
+    F.col("a_stats.hit_avg_launch_speed").alias("home_hit_avg_launch_speed"),
+    F.col("a_stats.hit_avg_bat_speed").alias("home_hit_avg_bat_speed")
 )
 
 # COMMAND ----------
 
 df_final.display()
+
+# COMMAND ----------
+
+df_final.write.mode("overwrite").saveAsTable("mlb.03_gold.game_summary_stats")
